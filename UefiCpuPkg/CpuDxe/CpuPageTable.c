@@ -528,7 +528,7 @@ SplitPage (
       for (Index = 0; Index < SIZE_4KB / sizeof(UINT64); Index++) {
         NewPageEntry[Index] = (BaseAddress + SIZE_4KB * Index) | AddressEncMask | ((*PageEntry) & PAGE_PROGATE_BITS);
       }
-      (*PageEntry) = (UINT64)(UINTN)NewPageEntry | AddressEncMask | ((*PageEntry) & PAGE_PROGATE_BITS);
+      (*PageEntry) = (UINT64)(UINTN)NewPageEntry | AddressEncMask | ((*PageEntry) & PAGE_ATTRIBUTE_BITS);
       return RETURN_SUCCESS;
     } else {
       return RETURN_UNSUPPORTED;
@@ -549,7 +549,7 @@ SplitPage (
       for (Index = 0; Index < SIZE_4KB / sizeof(UINT64); Index++) {
         NewPageEntry[Index] = (BaseAddress + SIZE_2MB * Index) | AddressEncMask | IA32_PG_PS | ((*PageEntry) & PAGE_PROGATE_BITS);
       }
-      (*PageEntry) = (UINT64)(UINTN)NewPageEntry | AddressEncMask | ((*PageEntry) & PAGE_PROGATE_BITS);
+      (*PageEntry) = (UINT64)(UINTN)NewPageEntry | AddressEncMask | ((*PageEntry) & PAGE_ATTRIBUTE_BITS);
       return RETURN_SUCCESS;
     } else {
       return RETURN_UNSUPPORTED;
@@ -597,7 +597,6 @@ DisableReadOnlyPageWriteProtect (
   )
 {
   AsmWriteCr0 (AsmReadCr0() & ~BIT16);
-  SyncMemoryPageAttributesAp (SyncCpuDisableWriteProtection);
 }
 
 /**
@@ -609,7 +608,6 @@ EnableReadOnlyPageWriteProtect (
   )
 {
   AsmWriteCr0 (AsmReadCr0() | BIT16);
-  SyncMemoryPageAttributesAp (SyncCpuEnableWriteProtection);
 }
 
 /**
@@ -697,6 +695,10 @@ ConvertMemoryPageAttributes (
     }
     if ((CurrentPagingContext.ContextData.Ia32.Attributes & PAGE_TABLE_LIB_PAGING_CONTEXT_IA32_X64_ATTRIBUTES_PAE) == 0) {
       DEBUG ((DEBUG_ERROR, "Non-PAE Paging!\n"));
+      return EFI_UNSUPPORTED;
+    }
+    if ((BaseAddress + Length) > BASE_4GB) {
+      DEBUG ((DEBUG_ERROR, "Beyond 4GB memory in 32-bit mode!\n"));
       return EFI_UNSUPPORTED;
     }
     break;
@@ -979,7 +981,7 @@ RefreshGcdMemoryAttributesFromPaging (
                         );
         ASSERT_EFI_ERROR (Status);
         DEBUG ((
-          DEBUG_INFO,
+          DEBUG_VERBOSE,
           "Updated memory space attribute: [%lu] %016lx - %016lx (%016lx -> %016lx)\r\n",
           (UINT64)Index, BaseAddress, BaseAddress + Length - 1,
           MemorySpaceMap[Index].Attributes,

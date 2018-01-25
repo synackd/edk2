@@ -772,6 +772,8 @@ FillExchangeInfoData (
   )
 {
   volatile MP_CPU_EXCHANGE_INFO    *ExchangeInfo;
+  UINTN                            Size;
+  IA32_SEGMENT_DESCRIPTOR          *Selector;
 
   ExchangeInfo                  = CpuMpData->MpCpuExchangeInfo;
   ExchangeInfo->Lock            = 0;
@@ -801,6 +803,45 @@ FillExchangeInfoData (
   //
   AsmReadGdtr ((IA32_DESCRIPTOR *) &ExchangeInfo->GdtrProfile);
   AsmReadIdtr ((IA32_DESCRIPTOR *) &ExchangeInfo->IdtrProfile);
+
+  //
+  // Find a 32-bit code segment
+  //
+  Selector = (IA32_SEGMENT_DESCRIPTOR *)ExchangeInfo->GdtrProfile.Base;
+  Size = ExchangeInfo->GdtrProfile.Limit + 1;
+  while (Size > 0) {
+    if (Selector->Bits.L == 0 && Selector->Bits.Type >= 8) {
+      ExchangeInfo->ModeTransitionSegment =
+        (UINT16)((UINTN)Selector - ExchangeInfo->GdtrProfile.Base);
+      break;
+    }
+    Selector += 1;
+    Size -= sizeof (IA32_SEGMENT_DESCRIPTOR);
+  }
+
+  //
+  // Copy all 32-bit code and 64-bit code into memory with type of
+  // EfiBootServicesCode to avoid page fault if NX memory protection is enabled.
+  //
+  if (CpuMpData->WakeupBufferHigh != 0) {
+    Size = CpuMpData->AddressMap.RendezvousFunnelSize -
+           CpuMpData->AddressMap.ModeTransitionOffset;
+    CopyMem (
+      (VOID *)CpuMpData->WakeupBufferHigh,
+      CpuMpData->AddressMap.RendezvousFunnelAddress +
+      CpuMpData->AddressMap.ModeTransitionOffset,
+      Size
+      );
+
+    ExchangeInfo->ModeTransitionMemory = (UINT32)CpuMpData->WakeupBufferHigh;
+    ExchangeInfo->ModeHighMemory = (UINT32)CpuMpData->WakeupBufferHigh +
+                                   (UINT32)ExchangeInfo->ModeOffset -
+                                   (UINT32)CpuMpData->AddressMap.ModeTransitionOffset;
+    ExchangeInfo->ModeHighSegment = (UINT16)ExchangeInfo->CodeSegment;
+  } else {
+    ExchangeInfo->ModeTransitionMemory = (UINT32)
+      (ExchangeInfo->BufferStart + CpuMpData->AddressMap.ModeTransitionOffset);
+  }
 }
 
 /**
@@ -876,6 +917,10 @@ AllocateResetVector (
     CpuMpData->WakeupBuffer      = GetWakeupBuffer (ApResetVectorSize);
     CpuMpData->MpCpuExchangeInfo = (MP_CPU_EXCHANGE_INFO *) (UINTN)
                     (CpuMpData->WakeupBuffer + CpuMpData->AddressMap.RendezvousFunnelSize);
+    CpuMpData->WakeupBufferHigh  = GetModeTransitionBuffer (
+                                    CpuMpData->AddressMap.RendezvousFunnelSize -
+                                    CpuMpData->AddressMap.ModeTransitionOffset
+                                    );
   }
   BackupAndPrepareWakeupBuffer (CpuMpData);
 }
