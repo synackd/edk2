@@ -266,6 +266,8 @@ DxeMain (
   //
   InitializeDebugAgent (DEBUG_AGENT_INIT_DXE_CORE, HobStart, NULL);
 
+  DEBUG ((DEBUG_INFO, "LinuxBoot DxeMain\r\n"));
+
   //
   // Initialize Memory Services
   //
@@ -283,7 +285,12 @@ DxeMain (
   gDxeCoreRT = AllocateRuntimeCopyPool (sizeof (EFI_RUNTIME_SERVICES), &mEfiRuntimeServicesTableTemplate);
   ASSERT (gDxeCoreRT != NULL);
 
+
+  // Set our vendor string and make sure there is at least a few pages
+  // available in low memory for the SMP trampoline.
   gDxeCoreST->RuntimeServices = gDxeCoreRT;
+  gDxeCoreST->FirmwareVendor = L"LinuxBoot";
+  gDxeCoreST->FirmwareRevision = 1337;
 
   //
   // Start the Image Services.
@@ -373,10 +380,11 @@ DxeMain (
 
     for (Hob.Raw = HobStart; !END_OF_HOB_LIST(Hob); Hob.Raw = GET_NEXT_HOB(Hob)) {
       if (GET_HOB_TYPE (Hob) == EFI_HOB_TYPE_MEMORY_ALLOCATION) {
-        DEBUG ((DEBUG_INFO | DEBUG_LOAD, "Memory Allocation 0x%08x 0x%0lx - 0x%0lx\n", \
+        DEBUG ((DEBUG_INFO | DEBUG_LOAD, "Memory Allocation 0x%02x 0x%0lx - 0x%0lx 0x%08x\n", \
           Hob.MemoryAllocation->AllocDescriptor.MemoryType,                      \
           Hob.MemoryAllocation->AllocDescriptor.MemoryBaseAddress,               \
-          Hob.MemoryAllocation->AllocDescriptor.MemoryBaseAddress + Hob.MemoryAllocation->AllocDescriptor.MemoryLength - 1));
+          Hob.MemoryAllocation->AllocDescriptor.MemoryBaseAddress + Hob.MemoryAllocation->AllocDescriptor.MemoryLength - 1,
+          Hob.MemoryAllocation->AllocDescriptor.MemoryLength));
       }
     }
     for (Hob.Raw = HobStart; !END_OF_HOB_LIST(Hob); Hob.Raw = GET_NEXT_HOB(Hob)) {
@@ -487,14 +495,52 @@ DxeMain (
   Status = FwVolBlockDriverInit (gDxeCoreImageHandle, gDxeCoreST);
   ASSERT_EFI_ERROR (Status);
 
+  // NERF hack for s2600wf to include the second firmware volume,
+  // which has the Linux kernel and initrd.  Depending on
+  // how we're booting we have either 4 or 7 MB avialable
+#if 0
+  DEBUG((DEBUG_INFO, "Adding LinuxBoot FV at 0xFF200000\n"));
+  ProduceFVBProtocolOnBuffer (0xFF200000, 0x700000, NULL, 0, NULL);
+#else
+  DEBUG((DEBUG_INFO, "Adding LinuxBoot FV at 0xFF500000\n"));
+  ProduceFVBProtocolOnBuffer (0xFF500000, 0x400000, NULL, 0, NULL);
+#endif
+
   Status = FwVolDriverInit (gDxeCoreImageHandle, gDxeCoreST);
   ASSERT_EFI_ERROR (Status);
+
 
   //
   // Produce the Section Extraction Protocol
   //
   Status = InitializeSectionExtraction (gDxeCoreImageHandle, gDxeCoreST);
   ASSERT_EFI_ERROR (Status);
+
+#if 0
+  // free up the low memory for Linux's SMP trampoline in the e820 map
+  // otherwise bad things happen...
+  // TODO: find out how to do this the right way, can't kexec until it works
+  EFI_PHYSICAL_ADDRESS trampoline = 0x100000;
+  Status = gBS->AllocatePages(
+  	AllocateAnyPages, // ideally AllocateMaxAddress
+	EfiBootServicesData,
+	0x10,
+	&trampoline);
+  if (Status != EFI_SUCCESS)
+  {
+	DEBUG((EFI_D_ERROR, "e820 trampoline unable to allocate memory rc=%d\n", Status));
+	CoreRemoveMemorySpace (0x10000, 0x10000);
+	CoreAddMemorySpace(
+		EfiGcdMemoryTypeSystemMemory,
+		0x10000,
+		0x10000,
+		0
+	);
+  } else {
+	//DEBUG((EFI_D_INFO, "e820 trampoline at %p\n", (const void*) trampoline));
+  }
+#endif
+
 
   //
   // Initialize the DXE Dispatcher
@@ -538,7 +584,7 @@ DxeMain (
       (EFI_SOFTWARE_DXE_CORE | EFI_SW_DXE_CORE_EC_NO_ARCH)
       );    
   }
-  ASSERT_EFI_ERROR (Status);
+  //ASSERT_EFI_ERROR (Status);
 
   //
   // Report Status code before transfer control to BDS
@@ -551,6 +597,8 @@ DxeMain (
   //
   // Transfer control to the BDS Architectural Protocol
   //
+DEBUG((DEBUG_INFO, "\n--------\nTransfering control to BDS %p\n", gBds));
+DEBUG((DEBUG_INFO, "Entry Point %p (%p)\n--------\n", gBds->Entry, *(void**) gBds));
   gBds->Entry (gBds);
 
   //
@@ -773,9 +821,12 @@ CoreExitBootServices (
 {
   EFI_STATUS                Status;
 
+DEBUG((DEBUG_INFO, "ExitBootServices time\n"));
+
   //
   // Disable Timer
   //
+  if(gTimer)
   gTimer->SetTimerPeriod (gTimer, 0);
 
   //
@@ -813,6 +864,7 @@ CoreExitBootServices (
   //
   // Disable CPU Interrupts
   //
+  if(gCpu)
   gCpu->DisableInterrupt (gCpu);
 
   MemoryProtectionExitBootServicesCallback();
