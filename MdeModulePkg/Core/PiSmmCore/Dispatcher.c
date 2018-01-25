@@ -656,9 +656,9 @@ SmmLoadImage (
 
 
     DEBUG ((DEBUG_INFO | DEBUG_LOAD,
-           "Loading SMM driver at 0x%11p EntryPoint=0x%11p ",
-           (VOID *)(UINTN) ImageContext.ImageAddress,
-           FUNCTION_ENTRY_POINT (ImageContext.EntryPoint)));
+           "Loading SMM driver @ 0x%08p ",
+           (VOID *)(UINTN) ImageContext.ImageAddress));
+           //FUNCTION_ENTRY_POINT (ImageContext.EntryPoint)));
 
 
     //
@@ -908,6 +908,7 @@ SmmDispatcher (
       //
       // For each SMM driver, pass NULL as ImageHandle
       //
+DEBUG((DEBUG_INFO, "%a: loading %g\n", __func__, &DriverEntry->FileName));
       RegisterSmramProfileImage (DriverEntry, TRUE);
       PERF_START (DriverEntry->ImageHandle, "StartImage:", NULL, 0);
       Status = ((EFI_IMAGE_ENTRY_POINT)(UINTN)DriverEntry->ImageEntryPoint)(DriverEntry->ImageHandle, gST);
@@ -1495,10 +1496,14 @@ SmmDisplayDiscoveredNotDispatched (
   LIST_ENTRY                   *Link;
   EFI_SMM_DRIVER_ENTRY         *DriverEntry;
 
+extern BOOLEAN gDebugDepex;
+gDebugDepex = 1;
   for (Link = mDiscoveredList.ForwardLink;Link !=&mDiscoveredList; Link = Link->ForwardLink) {
     DriverEntry = CR(Link, EFI_SMM_DRIVER_ENTRY, Link, EFI_SMM_DRIVER_ENTRY_SIGNATURE);
     if (DriverEntry->Dependent) {
       DEBUG ((DEBUG_LOAD, "SMM Driver %g was discovered but not loaded!!\n", &DriverEntry->FileName));
+      SmmIsSchedulable(DriverEntry);
     }
   }
+gDebugDepex = 0;
 }

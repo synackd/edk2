@@ -368,8 +368,15 @@ CoreInstallProtocolInterfaceNotify (
   }
 
   //
-  // Print debug message
+  // Print debug message for uncommon protocols
+  // this is really useful when turned on
   //
+  if( 1
+  && Protocol->Data1 != 0xbc62157e
+  && Protocol->Data1 != 0x5B1B31A1
+  && Protocol->Data1 != 0x4CF5B200
+  && Protocol->Data1 != 0x09576E91
+  )
   DEBUG((DEBUG_INFO, "InstallProtocolInterface: %g %p\n", Protocol, Interface));
 
   Status = EFI_OUT_OF_RESOURCES;

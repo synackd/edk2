@@ -733,10 +733,20 @@ CoreLoadPeImage (
     CHAR8 EfiFileName[256];
 
 
+extern EFI_GUID * gLastGuid;
+
+/*
     DEBUG ((DEBUG_INFO | DEBUG_LOAD,
-           "Loading driver at 0x%11p EntryPoint=0x%11p ",
+           "Loading driver %g at 0x%11p EntryPoint=0x%11p ",
+	   gLastGuid,
            (VOID *)(UINTN) Image->ImageContext.ImageAddress,
            FUNCTION_ENTRY_POINT (Image->ImageContext.EntryPoint)));
+*/
+    DEBUG ((DEBUG_INFO | DEBUG_LOAD,
+           "Driver %g @ 0x%08p ",
+	   gLastGuid,
+           (VOID *)(UINTN) Image->ImageContext.ImageAddress
+	));
 
 
     //

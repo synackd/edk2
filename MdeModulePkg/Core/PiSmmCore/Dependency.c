@@ -40,6 +40,10 @@ BOOLEAN  *mDepexEvaluationStack        = NULL;
 BOOLEAN  *mDepexEvaluationStackEnd     = NULL;
 BOOLEAN  *mDepexEvaluationStackPointer = NULL;
 
+
+// Turn off DEPEX parsing; slows things down, but helpful for debugging
+BOOLEAN gDebugDepex = 0;
+
 /**
   Grow size of the Depex stack
 
@@ -193,6 +197,7 @@ SmmIsSchedulable (
     return FALSE;
   }
 
+if(gDebugDepex)
   DEBUG ((DEBUG_DISPATCH, "Evaluate SMM DEPEX for FFS(%g)\n", &DriverEntry->FileName));
   
   if (DriverEntry->Depex == NULL) {
@@ -255,9 +260,11 @@ SmmIsSchedulable (
       }
 
       if (EFI_ERROR (Status)) {
+if(gDebugDepex)
         DEBUG ((DEBUG_DISPATCH, "  PUSH GUID(%g) = FALSE\n", &DriverGuid));
         Status = PushBool (FALSE);
       } else {
+if(gDebugDepex)
         DEBUG ((DEBUG_DISPATCH, "  PUSH GUID(%g) = TRUE\n", &DriverGuid));
         *Iterator = EFI_DEP_REPLACE_TRUE;
         Status = PushBool (TRUE);
@@ -271,7 +278,7 @@ SmmIsSchedulable (
       break;
 
     case EFI_DEP_AND:
-      DEBUG ((DEBUG_DISPATCH, "  AND\n"));
+      //DEBUG ((DEBUG_DISPATCH, "  AND\n"));
       Status = PopBool (&Operator);
       if (EFI_ERROR (Status)) {
         DEBUG ((DEBUG_DISPATCH, "  RESULT = FALSE (Unexpected error)\n"));
@@ -292,6 +299,7 @@ SmmIsSchedulable (
       break;
 
     case EFI_DEP_OR:
+if(gDebugDepex)
       DEBUG ((DEBUG_DISPATCH, "  OR\n"));
       Status = PopBool (&Operator);
       if (EFI_ERROR (Status)) {
@@ -313,6 +321,7 @@ SmmIsSchedulable (
       break;
 
     case EFI_DEP_NOT:
+if(gDebugDepex)
       DEBUG ((DEBUG_DISPATCH, "  NOT\n"));
       Status = PopBool (&Operator);
       if (EFI_ERROR (Status)) {
@@ -328,6 +337,7 @@ SmmIsSchedulable (
       break;
 
     case EFI_DEP_TRUE:
+if(gDebugDepex)
       DEBUG ((DEBUG_DISPATCH, "  TRUE\n"));
       Status = PushBool (TRUE);
       if (EFI_ERROR (Status)) {
@@ -337,6 +347,7 @@ SmmIsSchedulable (
       break;
 
     case EFI_DEP_FALSE:
+if(gDebugDepex)
       DEBUG ((DEBUG_DISPATCH, "  FALSE\n"));
       Status = PushBool (FALSE);
       if (EFI_ERROR (Status)) {
@@ -346,17 +357,19 @@ SmmIsSchedulable (
       break;
 
     case EFI_DEP_END:
-      DEBUG ((DEBUG_DISPATCH, "  END\n"));
+      //DEBUG ((DEBUG_DISPATCH, "  END\n"));
       Status = PopBool (&Operator);
       if (EFI_ERROR (Status)) {
         DEBUG ((DEBUG_DISPATCH, "  RESULT = FALSE (Unexpected error)\n"));
         return FALSE;
       }
+if(gDebugDepex)
       DEBUG ((DEBUG_DISPATCH, "  RESULT = %a\n", Operator ? "TRUE" : "FALSE"));
       return Operator;
 
     case EFI_DEP_REPLACE_TRUE:
       CopyMem (&DriverGuid, Iterator + 1, sizeof (EFI_GUID));
+if(gDebugDepex)
       DEBUG ((DEBUG_DISPATCH, "  PUSH GUID(%g) = TRUE\n", &DriverGuid));
       Status = PushBool (TRUE);
       if (EFI_ERROR (Status)) {

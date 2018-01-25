@@ -208,6 +208,8 @@ CorePreProcessDepex (
                                 was found.
 
 **/
+BOOLEAN mDebugDepex;
+
 BOOLEAN
 CoreIsSchedulable (
   IN  EFI_CORE_DRIVER_ENTRY   *DriverEntry
@@ -231,19 +233,18 @@ CoreIsSchedulable (
     return FALSE;
   }
 
-  DEBUG ((DEBUG_DISPATCH, "Evaluate DXE DEPEX for FFS(%g)\n", &DriverEntry->FileName));
+  //DEBUG ((DEBUG_DISPATCH, "Evaluate DXE DEPEX for FFS(%g)\n", &DriverEntry->FileName));
 
   if (DriverEntry->Depex == NULL) {
     //
     // A NULL Depex means treat the driver like an UEFI 2.0 thing.
     //
     Status = CoreAllEfiServicesAvailable ();
-    DEBUG ((DEBUG_DISPATCH, "  All UEFI Services Available                     = "));
     if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_DISPATCH, "FALSE\n  RESULT = FALSE\n"));
+      if (mDebugDepex) DEBUG ((DEBUG_DISPATCH, "  All UEFI Services Available = FALSE\n"));
       return FALSE;
     }
-    DEBUG ((DEBUG_DISPATCH, "TRUE\n  RESULT = TRUE\n"));
+      if (mDebugDepex) DEBUG ((DEBUG_DISPATCH, "  All UEFI Services Available = TRUE\n"));
     return TRUE;
   }
 
@@ -306,10 +307,10 @@ CoreIsSchedulable (
       Status = CoreLocateProtocol (&DriverGuid, NULL, &Interface);
 
       if (EFI_ERROR (Status)) {
-        DEBUG ((DEBUG_DISPATCH, "  PUSH GUID(%g) = FALSE\n", &DriverGuid));
+        if (mDebugDepex) DEBUG ((DEBUG_DISPATCH, "  PUSH GUID(%g) = FALSE\n", &DriverGuid));
         Status = PushBool (FALSE);
       } else {
-        DEBUG ((DEBUG_DISPATCH, "  PUSH GUID(%g) = TRUE\n", &DriverGuid));
+        if (mDebugDepex) DEBUG ((DEBUG_DISPATCH, "  PUSH GUID(%g) = TRUE\n", &DriverGuid));
         *Iterator = EFI_DEP_REPLACE_TRUE;
         Status = PushBool (TRUE);
       }
@@ -322,7 +323,7 @@ CoreIsSchedulable (
       break;
 
     case EFI_DEP_AND:
-      DEBUG ((DEBUG_DISPATCH, "  AND\n"));
+      //DEBUG ((DEBUG_DISPATCH, "  AND\n"));
       Status = PopBool (&Operator);
       if (EFI_ERROR (Status)) {
         DEBUG ((DEBUG_DISPATCH, "  RESULT = FALSE (Unexpected error)\n"));
@@ -343,7 +344,7 @@ CoreIsSchedulable (
       break;
 
     case EFI_DEP_OR:
-      DEBUG ((DEBUG_DISPATCH, "  OR\n"));
+      //DEBUG ((DEBUG_DISPATCH, "  OR\n"));
       Status = PopBool (&Operator);
       if (EFI_ERROR (Status)) {
         DEBUG ((DEBUG_DISPATCH, "  RESULT = FALSE (Unexpected error)\n"));
@@ -364,7 +365,7 @@ CoreIsSchedulable (
       break;
 
     case EFI_DEP_NOT:
-      DEBUG ((DEBUG_DISPATCH, "  NOT\n"));
+      //DEBUG ((DEBUG_DISPATCH, "  NOT\n"));
       Status = PopBool (&Operator);
       if (EFI_ERROR (Status)) {
         DEBUG ((DEBUG_DISPATCH, "  RESULT = FALSE (Unexpected error)\n"));
@@ -379,7 +380,7 @@ CoreIsSchedulable (
       break;
 
     case EFI_DEP_TRUE:
-      DEBUG ((DEBUG_DISPATCH, "  TRUE\n"));
+      //DEBUG ((DEBUG_DISPATCH, "  TRUE\n"));
       Status = PushBool (TRUE);
       if (EFI_ERROR (Status)) {
         DEBUG ((DEBUG_DISPATCH, "  RESULT = FALSE (Unexpected error)\n"));
@@ -388,7 +389,7 @@ CoreIsSchedulable (
       break;
 
     case EFI_DEP_FALSE:
-      DEBUG ((DEBUG_DISPATCH, "  FALSE\n"));
+      //DEBUG ((DEBUG_DISPATCH, "  FALSE\n"));
       Status = PushBool (FALSE);
       if (EFI_ERROR (Status)) {
         DEBUG ((DEBUG_DISPATCH, "  RESULT = FALSE (Unexpected error)\n"));
@@ -397,18 +398,18 @@ CoreIsSchedulable (
       break;
 
     case EFI_DEP_END:
-      DEBUG ((DEBUG_DISPATCH, "  END\n"));
+      //DEBUG ((DEBUG_DISPATCH, "  END\n"));
       Status = PopBool (&Operator);
       if (EFI_ERROR (Status)) {
         DEBUG ((DEBUG_DISPATCH, "  RESULT = FALSE (Unexpected error)\n"));
         return FALSE;
       }
-      DEBUG ((DEBUG_DISPATCH, "  RESULT = %a\n", Operator ? "TRUE" : "FALSE"));
+      if (mDebugDepex) DEBUG ((DEBUG_DISPATCH, "  RESULT = %a\n", Operator ? "TRUE" : "FALSE"));
       return Operator;
 
     case EFI_DEP_REPLACE_TRUE:
       CopyMem (&DriverGuid, Iterator + 1, sizeof (EFI_GUID));
-      DEBUG ((DEBUG_DISPATCH, "  PUSH GUID(%g) = TRUE\n", &DriverGuid));
+      //DEBUG ((DEBUG_DISPATCH, "  PUSH GUID(%g) = TRUE\n", &DriverGuid));
       
       Status = PushBool (TRUE);
       if (EFI_ERROR (Status)) {

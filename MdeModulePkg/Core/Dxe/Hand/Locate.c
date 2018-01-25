@@ -613,6 +613,7 @@ CoreLocateProtocol (
 
 Done:
   CoreReleaseProtocolLock ();
+//if (Status == EFI_NOT_FOUND) DEBUG((DEBUG_INFO, "%a: %g not found\n", __func__, Protocol));
   return Status;
 }
 

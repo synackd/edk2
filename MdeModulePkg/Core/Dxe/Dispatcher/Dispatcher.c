@@ -392,6 +392,9 @@ CoreTrust (
   return EFI_NOT_FOUND;
 }
 
+
+EFI_GUID * gLastGuid;
+
 /**
   This is the main Dispatcher for DXE and it exits when there are no more
   drivers to run. Drain the mScheduledQueue and load and start a PE
@@ -460,7 +463,8 @@ CoreDispatcher (
       // skip the LoadImage
       //
       if (DriverEntry->ImageHandle == NULL && !DriverEntry->IsFvImage) {
-        DEBUG ((DEBUG_INFO, "Loading driver %g\n", &DriverEntry->FileName));
+        //DEBUG ((DEBUG_INFO, "Loading driver %g\n", &DriverEntry->FileName));
+	gLastGuid = &DriverEntry->FileName;
         Status = CoreLoadImage (
                         FALSE,
                         gDxeCoreImageHandle,
@@ -1411,8 +1415,8 @@ CoreFwVolEventProtocolNotify (
           DriverEntry->Scheduled = TRUE;
           InsertTailList (&mScheduledQueue, &DriverEntry->ScheduledLink);
           CoreReleaseDispatcherLock ();
-          DEBUG ((DEBUG_DISPATCH, "Evaluate DXE DEPEX for FFS(%g)\n", &DriverEntry->FileName));
-          DEBUG ((DEBUG_DISPATCH, "  RESULT = TRUE (Apriori)\n"));
+          //DEBUG ((DEBUG_DISPATCH, "Evaluate DXE DEPEX for FFS(%g)\n", &DriverEntry->FileName));
+          //DEBUG ((DEBUG_DISPATCH, "  RESULT = TRUE (Apriori)\n"));
           break;
         }
       }
@@ -1463,10 +1467,23 @@ CoreDisplayDiscoveredNotDispatched (
   LIST_ENTRY                    *Link;
   EFI_CORE_DRIVER_ENTRY         *DriverEntry;
 
+extern BOOLEAN mDebugDepex;
+mDebugDepex = 1;
   for (Link = mDiscoveredList.ForwardLink;Link !=&mDiscoveredList; Link = Link->ForwardLink) {
     DriverEntry = CR(Link, EFI_CORE_DRIVER_ENTRY, Link, EFI_CORE_DRIVER_ENTRY_SIGNATURE);
     if (DriverEntry->Dependent) {
-      DEBUG ((DEBUG_LOAD, "Driver %g was discovered but not loaded!!\n", &DriverEntry->FileName));
+struct {
+  UINTN               Signature;
+  BOOLEAN             FreeBuffer;
+  VOID                *Source;
+  UINTN               SourceSize;
+} * handle = DriverEntry->ImageHandle;
+const char * filename = handle ?  PeCoffLoaderGetPdbPointer(handle->Source) : "no-handle";
+
+      DEBUG ((DEBUG_LOAD, "Driver %g was discovered but not loaded!! %a\n", &DriverEntry->FileName, filename));
+	CoreIsSchedulable(DriverEntry);
     }
   }
+mDebugDepex = 0;
+
 }
