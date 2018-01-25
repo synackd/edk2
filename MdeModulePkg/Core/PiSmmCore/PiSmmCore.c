@@ -227,6 +227,8 @@ SmmExitBootServicesHandler (
 
   SmiHandlerUnRegister (DispatchHandle);
 
+DEBUG((DEBUG_INFO, "%a:%d\n", __func__, __LINE__));
+
   //
   // It is UEFI boot, unregister LegacyBoot SMI handler.
   //
@@ -344,6 +346,7 @@ SmmReadyToLockHandler (
   EFI_HANDLE  SmmHandle;
   VOID        *Interface;
 
+DEBUG((DEBUG_INFO, "%a:%d\n", __func__, __LINE__));
   //
   // Unregister SMI Handlers that are no required after the SMM driver dispatch is stopped
   //
